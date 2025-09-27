@@ -1,10 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose") // không ghi version
+    id("org.jetbrains.kotlin.plugin.compose")
 }
-
-
 
 android {
     namespace = "com.example.opendotaclient"
@@ -36,12 +34,11 @@ android {
     kotlinOptions { jvmTarget = "17" }
 
     buildFeatures { compose = true }
-    // Với Compose 1.7.x dùng compiler ext 1.5.14 là ổn (template mới của AS)
     composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
 }
 
 dependencies {
-    // BOM Compose
+    // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.09.01"))
 
     // Compose core + Material3
@@ -49,22 +46,23 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-
-    // Navigation + Icons
     implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Coroutines
+    // Coroutines + Lifecycle + VM
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
-
-    // Lifecycle + ViewModel
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
 
-    // Networking
+    // Networking (Retrofit + Moshi converter + OkHttp)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-moshi:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    // Moshi + Kotlin reflect (cần cho KotlinJsonAdapterFactory)
+    implementation("com.squareup.moshi:moshi-kotlin:1.15.1")
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.9.24")
 
     // Coil (ảnh)
     implementation("io.coil-kt:coil-compose:2.6.0")
