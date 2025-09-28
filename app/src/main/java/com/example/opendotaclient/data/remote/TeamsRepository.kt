@@ -1,7 +1,6 @@
 package com.example.opendotaclient.data.remote
 
-import com.example.opendotaclient.data.TeamUI
-import com.example.opendotaclient.data.remote.TeamDTO
+import com.example.opendotaclient.data.TeamUI  // <-- THÊM IMPORT NÀY
 
 class TeamsRepository(private val api: OpenDotaService) {
 
@@ -13,7 +12,7 @@ class TeamsRepository(private val api: OpenDotaService) {
         }
 
     suspend fun getTopTeams(limit: Int = 50, apiKey: String? = null): List<TeamUI> {
-        val list: List<TeamDTO> = api.getTeams(apiKey)   // trả về List<TeamDTO>
+        val list: List<TeamDTO> = api.getTeams(apiKey)
         return list
             .sortedByDescending { it.rating ?: 0.0 }
             .take(limit)
@@ -21,12 +20,12 @@ class TeamsRepository(private val api: OpenDotaService) {
     }
 
     private fun TeamDTO.toUI() = TeamUI(
-        id = team_id?.toLong() ?: 0L,
+        id = teamId?.toLong() ?: 0L,         // dùng camelCase đúng với dto.kt
         name = name ?: tag ?: "Unknown",
         tag = tag,
-        logoUrl = toCdn(logo_url),
+        logoUrl = toCdn(logoUrl),
         rating = rating,
         wins = wins ?: 0,
-        losses = losses ?: 0,
+        losses = losses ?: 0
     )
 }

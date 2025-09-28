@@ -34,11 +34,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavDestination
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.opendotaclient.data.remote.HeroesRepository
 import com.example.opendotaclient.data.remote.MatchDetailRepository
@@ -60,6 +58,14 @@ import com.example.opendotaclient.ui.matches.PublicFeedViewModel
 import com.example.opendotaclient.ui.teams.TeamsScreen
 import com.example.opendotaclient.ui.teams.TeamsVMFactory
 import com.example.opendotaclient.ui.teams.TeamsViewModel
+
+// >>> ADDED imports for Player Overview <<<
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.opendotaclient.data.PlayerOverviewRepository
+import com.example.opendotaclient.ui.player.PlayerOverviewScreen
+import com.example.opendotaclient.ui.player.PlayerOverviewViewModel
+// <<< END ADDED >>>
 
 /* ===== Palette ===== */
 private val Navy = Color(0xFF123A4A)
@@ -116,7 +122,6 @@ class MainActivity : ComponentActivity() {
                 typography = AppTypography
             ) {
                 val nav = rememberNavController()
-                val dest = nav.currentBackStackEntryAsState().value?.destination
 
                 Scaffold(
                     topBar = {
@@ -132,12 +137,13 @@ class MainActivity : ComponentActivity() {
                                         color = AccentBlue,
                                         fontWeight = FontWeight.Black,
                                         fontSize = 18.sp,
-                                        modifier = Modifier.clickable { nav.safeNavigate("home", dest) }
+                                        modifier = Modifier.clickable { nav.goHome() }
+
                                     )
                                     Spacer(Modifier.width(18.dp))
-                                    TopNavItem("Matches") { nav.safeNavigate("matches", dest) }
-                                    TopNavItem("Heroes")  { nav.safeNavigate("heroes", dest) }
-                                    TopNavItem("Teams")   { nav.safeNavigate("teams", dest) }
+                                    TopNavItem("Matches") { nav.safeNavigate("matches") }
+                                    TopNavItem("Heroes")  { nav.safeNavigate("heroes") }
+                                    TopNavItem("Teams")   { nav.safeNavigate("teams") }
                                     Spacer(Modifier.weight(1f))
                                 }
                             }
@@ -171,7 +177,7 @@ class MainActivity : ComponentActivity() {
                                 HomeScreen(
                                     onOpenPlayer = { rawId ->
                                         val id32 = toSteam32(rawId)
-                                        if (id32 != null && id32 > 0) nav.safeNavigate("matches/$id32", dest)
+                                        if (id32 != null && id32 > 0) nav.safeNavigate("player/$id32")
                                     }
                                 )
                             }
@@ -186,12 +192,36 @@ class MainActivity : ComponentActivity() {
                                             apiKey = null
                                         )
                                     )
-
                                     MatchesScreen(vm)
                                 } else {
-                                    LaunchedEffect(Unit) { nav.safeNavigate("home", dest) }
+                                    LaunchedEffect(Unit) { nav.safeNavigate("home") }
                                 }
                             }
+
+                            // >>> Player Overview route
+                            composable("player/{accountId32}") { backStackEntry ->
+                                val id32 = backStackEntry.arguments?.getString("accountId32")?.toLongOrNull()
+                                if (id32 != null) {
+                                    val vm = viewModel<PlayerOverviewViewModel>(
+                                        factory = object : ViewModelProvider.Factory {
+                                            @Suppress("UNCHECKED_CAST")
+                                            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                                                val api = RetrofitClient.api
+                                                val overviewRepo = PlayerOverviewRepository(api)
+                                                return PlayerOverviewViewModel(
+                                                    id32 = id32,
+                                                    overviewRepo = overviewRepo,
+                                                    api = api
+                                                ) as T
+                                            }
+                                        }
+                                    )
+                                    PlayerOverviewScreen(vm)
+                                } else {
+                                    LaunchedEffect(Unit) { nav.safeNavigate("home") }
+                                }
+                            }
+                            // <<< END
 
                             composable("heroes") {
                                 val vm = viewModel<HeroesViewModel>(
@@ -208,6 +238,19 @@ class MainActivity : ComponentActivity() {
 }
 
 /* ===== Helpers ===== */
+private fun androidx.navigation.NavHostController.goHome() {
+    // Nếu 'home' đã có trong back stack: pop về thẳng home (không xoá nó)
+    val popped = popBackStack(route = "home", inclusive = false)
+    if (!popped) {
+        // Nếu back stack chưa có 'home' thì navigate bình thường
+        navigate("home") {
+            popUpTo(graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+}
+
 private fun toSteam32(input: String): Long? {
     val t = input.trim()
     if (t.isEmpty()) return null
@@ -215,15 +258,27 @@ private fun toSteam32(input: String): Long? {
     return if (t.length > 10 || t.startsWith("7656")) n - 76561197960265728L else n
 }
 
-private fun androidx.navigation.NavHostController.safeNavigate(
-    route: String,
-    current: NavDestination?
-) {
+private fun androidx.navigation.NavHostController.safeNavigate(route: String) {
+    val current = this.currentDestination
     if (current?.route == route) return
+
+    // Route có tham số động? (vd: "player/123", "match/456")
+    val isDynamic = route.startsWith("player/") ||
+            route.startsWith("match/")  ||
+            route.startsWith("matches/")
+
     navigate(route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
+        if (!isDynamic) {
+            // Với các tab tĩnh thì giữ behavior cũ
+            popUpTo(graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        } else {
+            // Với màn hình động: luôn tạo state mới theo ID mới
+            launchSingleTop = false
+            restoreState = false
+            // Không popUpTo/saveState để tránh khôi phục entry cũ với args cũ
+        }
     }
 }
 
@@ -276,10 +331,10 @@ fun HomeScreen(onOpenPlayer: (String) -> Unit) {
                     Spacer(Modifier.height(16.dp))
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),   // quan trọng để weight hoạt động
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // ===== Search field (fixed) =====
+                        // ===== Search field =====
                         OutlinedTextField(
                             value = query,
                             onValueChange = {
@@ -290,12 +345,12 @@ fun HomeScreen(onOpenPlayer: (String) -> Unit) {
                             maxLines = 1,
                             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                             placeholder = { Text("Enter Player ID…") },
-                            textStyle = TextStyle(color = Color.White), // có/không đều ok
+                            textStyle = TextStyle(color = Color.White),
                             visualTransformation = VisualTransformation.None,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .heightIn(min = 56.dp),                 // ⬅️ KHÔNG dùng .height(52.dp)
+                                .heightIn(min = 56.dp),
                             isError = error != null,
                             supportingText = { error?.let { Text(it, color = Color.Red) } },
                             colors = OutlinedTextFieldDefaults.colors(
@@ -312,7 +367,6 @@ fun HomeScreen(onOpenPlayer: (String) -> Unit) {
                                 unfocusedLeadingIconColor = Color.White
                             )
                         )
-
 
                         Spacer(Modifier.width(10.dp))
                         Button(
