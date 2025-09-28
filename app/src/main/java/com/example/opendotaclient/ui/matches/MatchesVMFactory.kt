@@ -2,18 +2,17 @@ package com.example.opendotaclient.ui.matches
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.opendotaclient.data.remote.HeroesRepository
 import com.example.opendotaclient.data.remote.MatchesRepository
 
 class MatchesVMFactory(
     private val repo: MatchesRepository,
+    private val heroesRepo: HeroesRepository,
     private val accountId32: Long,
-    private val apiKey: String? = null
+    private val apiKey: String?
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(MatchesViewModel::class.java)) {
-            return MatchesViewModel(repo, accountId32, apiKey) as T
-        }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        return MatchesViewModel(repo, heroesRepo, accountId32, apiKey) as T
     }
 }

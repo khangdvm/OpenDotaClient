@@ -28,23 +28,27 @@ class MatchDetailViewModel(
         _state.value = MatchDetailState(loading = true)
         viewModelScope.launch {
             try {
-                // 1. Lấy hero_id trong trận
-                val ids = detailRepo.getHeroIdsInMatch(matchId, apiKey)
+                // 1) Lấy danh sách hero_id xuất hiện trong trận
+                val ids: List<Int> = detailRepo.getHeroIdsInMatch(matchId, apiKey)
 
-                // 2. Lấy hero stats (có field img)
-                val stats = heroesRepo.getHeroes(apiKey)
-                val imgMap = stats.associateBy({ it.id }, { it.img })
+                // 2) Lấy catalog heroes (HeroUI) — đã có imageUrl FULL
+                val catalog = heroesRepo.getHeroes(apiKey)            // List<HeroUI>
+                val imgMap: Map<Int, String?> = catalog.associate { it.id to it.imageUrl }
 
-                // 3. Map hero_id -> url đầy đủ
-                val cdn = "https://cdn.cloudflare.steamstatic.com"
-                val urls = ids.mapNotNull { hid ->
-                    imgMap[hid]?.let { cdn + it }
-                }
+                // 3) Map hero_id -> imageUrl (bỏ null)
+                val urls: List<String> = ids.mapNotNull { hid -> imgMap[hid] }
 
-                _state.value = MatchDetailState(loading = false, heroImageUrls = urls)
-
+                _state.value = MatchDetailState(
+                    loading = false,
+                    heroImageUrls = urls,
+                    error = null
+                )
             } catch (e: Exception) {
-                _state.value = MatchDetailState(loading = false, error = e.message)
+                _state.value = MatchDetailState(
+                    loading = false,
+                    heroImageUrls = emptyList(),
+                    error = e.message
+                )
             }
         }
     }

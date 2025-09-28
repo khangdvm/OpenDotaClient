@@ -61,7 +61,7 @@ data class PlayerDTO(
     )
 }
 
-data class PlayerHeroDTO(
+data class PlayerHeroStatDTO(
     @Json(name = "hero_id") val heroId: Int,
     val games: Int,
     val win: Int
@@ -72,7 +72,9 @@ data class PlayerRankingDTO(
     val rank: Int?,
     val score: Double?
 )
+
 // com/example/opendotaclient/data/remote/dto.kt
+
 data class MatchDetailDTO(
     @Json(name = "match_id") val matchId: Long,
     val players: List<MatchPlayerDTO> = emptyList()
@@ -80,5 +82,8 @@ data class MatchDetailDTO(
 
 data class MatchPlayerDTO(
     @Json(name = "account_id") val accountId: Long?,
-    @Json(name = "hero_id") val heroId: Int?
+    @Json(name = "hero_id") val heroId: Int?,
+    // THÊM 2 FIELD NÀY (nullable, an toàn):
+    @Json(name = "isRadiant") val isRadiant: Boolean? = null,
+    @Json(name = "player_slot") val playerSlot: Int? = null
 )

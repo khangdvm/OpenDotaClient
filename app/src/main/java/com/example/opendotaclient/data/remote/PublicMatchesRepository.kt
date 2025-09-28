@@ -1,19 +1,13 @@
+// app/src/main/java/com/example/opendotaclient/data/remote/PublicMatchesRepository.kt
 package com.example.opendotaclient.data.remote
 
-/**
- * Repository cho feed Public Matches
- */
-class PublicMatchesRepository(private val api: OpenDotaService) {
+// Giữ data class nhẹ nếu nơi khác còn import (an toàn)
+data class PublicMatchUI(
+    val id: Long,
+    val avgMmr: Int?,
+    val durationSec: Int?,
+    val radiantWin: Boolean?
+)
 
-    /**
-     * /publicMatches
-     * @param mmrDesc: 1 nếu muốn sắp xếp theo MMR giảm dần (optional)
-     * @param lessThanMatchId: phân trang thủ công theo match_id (optional)
-     */
-    suspend fun getPublicMatches(
-        mmrDesc: Int? = null,
-        lessThanMatchId: Long? = null
-    ): List<PublicMatchDTO> {
-        return api.getPublicMatches(mmrDesc, lessThanMatchId)
-    }
-}
+// Placeholder: không còn dùng Repo này cho PublicFeed
+class PublicMatchesRepository

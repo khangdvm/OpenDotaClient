@@ -1,5 +1,7 @@
 package com.example.opendotaclient
 
+import androidx.compose.runtime.saveable.rememberSaveable
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -27,7 +29,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,39 +40,28 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-
-// ---- data / retrofit ----
-import com.example.opendotaclient.data.remote.RetrofitClient
-
-// ---- repositories (đều ở data.remote) ----
-import com.example.opendotaclient.data.remote.PublicMatchesRepository
-import com.example.opendotaclient.data.remote.MatchesRepository
 import com.example.opendotaclient.data.remote.HeroesRepository
+import com.example.opendotaclient.data.remote.MatchDetailRepository
+import com.example.opendotaclient.data.remote.MatchesRepository
+import com.example.opendotaclient.data.remote.RetrofitClient
 import com.example.opendotaclient.data.remote.TeamsRepository
-
-// ---- UI screens + factories ----
-import com.example.opendotaclient.ui.matches.PublicFeedScreen
-import com.example.opendotaclient.ui.matches.PublicFeedVMFactory
-import com.example.opendotaclient.ui.matches.PublicFeedViewModel
-import com.example.opendotaclient.ui.matches.MatchesScreen
-import com.example.opendotaclient.ui.matches.MatchesVMFactory
-import com.example.opendotaclient.ui.matches.MatchesViewModel
-
 import com.example.opendotaclient.ui.heroes.HeroesScreen
 import com.example.opendotaclient.ui.heroes.HeroesVMFactory
 import com.example.opendotaclient.ui.heroes.HeroesViewModel
-
+import com.example.opendotaclient.ui.matches.MatchDetailScreen
+import com.example.opendotaclient.ui.matches.MatchDetailVMFactory
+import com.example.opendotaclient.ui.matches.MatchDetailViewModel
+import com.example.opendotaclient.ui.matches.MatchesScreen
+import com.example.opendotaclient.ui.matches.MatchesVMFactory
+import com.example.opendotaclient.ui.matches.MatchesViewModel
+import com.example.opendotaclient.ui.matches.PublicFeedScreen
+import com.example.opendotaclient.ui.matches.PublicFeedVMFactory
+import com.example.opendotaclient.ui.matches.PublicFeedViewModel
 import com.example.opendotaclient.ui.teams.TeamsScreen
 import com.example.opendotaclient.ui.teams.TeamsVMFactory
 import com.example.opendotaclient.ui.teams.TeamsViewModel
 
-// import thêm:
-import com.example.opendotaclient.data.remote.MatchDetailRepository
-import com.example.opendotaclient.ui.matches.MatchDetailScreen
-import com.example.opendotaclient.ui.matches.MatchDetailVMFactory
-import com.example.opendotaclient.ui.matches.MatchDetailViewModel
-
-// ========== Palette ==========
+/* ===== Palette ===== */
 private val Navy = Color(0xFF123A4A)
 private val NavyDark = Color(0xFF0E2D3A)
 private val Ink = Color(0xFF0B1C24)
@@ -78,7 +69,7 @@ private val AccentBlue = Color(0xFF3BA1E6)
 private val TextLight = Color(0xFFEAF2F7)
 private val TextDim = Color(0xFFBDD1DE)
 
-// ========== Typography ==========
+/* ===== Typography ===== */
 private val AppTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -125,8 +116,7 @@ class MainActivity : ComponentActivity() {
                 typography = AppTypography
             ) {
                 val nav = rememberNavController()
-                val backStack by nav.currentBackStackEntryAsState()
-                val dest = backStack?.destination
+                val dest = nav.currentBackStackEntryAsState().value?.destination
 
                 Scaffold(
                     topBar = {
@@ -157,81 +147,56 @@ class MainActivity : ComponentActivity() {
                     Box(Modifier.fillMaxSize().padding(inner)) {
                         NavHost(navController = nav, startDestination = "home") {
                             composable("match/{matchId}") { backStackEntry ->
-                                val matchId = backStackEntry.arguments?.getString("matchId")?.toLongOrNull()
-                                if (matchId != null) {
+                                backStackEntry.arguments?.getString("matchId")?.toLongOrNull()?.let { matchId ->
                                     val api = RetrofitClient.api
                                     val detailRepo = MatchDetailRepository(api)
                                     val heroesRepo = HeroesRepository(api)
-
-                                    val factory = MatchDetailVMFactory(
-                                        matchId = matchId,
-                                        detailRepo = detailRepo,
-                                        heroesRepo = heroesRepo,
-                                        apiKey = null
+                                    val vm = viewModel<MatchDetailViewModel>(
+                                        factory = MatchDetailVMFactory(matchId, detailRepo, heroesRepo, apiKey = null)
                                     )
-                                    val vm = viewModel<MatchDetailViewModel>(factory = factory)
                                     MatchDetailScreen(vm)
                                 }
                             }
-
-
-
-                            // ----- Public feed (/matches) -----
                             composable("matches") {
-                                val api = RetrofitClient.api
-                                val repo = PublicMatchesRepository(api)
-                                val factory = PublicFeedVMFactory(repo)
-                                val vm = viewModel<PublicFeedViewModel>(factory = factory)
-                                PublicFeedScreen(
-                                    vm = vm,
-                                    onOpenMatch = { id -> nav.navigate("match/$id") }
-                                )
-
+                                val vm = viewModel<PublicFeedViewModel>(factory = PublicFeedVMFactory())
+                                PublicFeedScreen(vm = vm, onOpenMatch = { id -> nav.navigate("match/$id") })
                             }
-
-
-                            // ----- Teams list -----
                             composable("teams") {
-                                val api = RetrofitClient.api
-                                val repo = TeamsRepository(api)
-                                val factory = TeamsVMFactory(repo, null) // cách B: VM nhận apiKey?
-                                val vm = viewModel<TeamsViewModel>(factory = factory)
-                                TeamsScreen(vm) // gọi trực tiếp, không cần TeamsHost
+                                val vm = viewModel<TeamsViewModel>(
+                                    factory = TeamsVMFactory(TeamsRepository(RetrofitClient.api), apiKey = null)
+                                )
+                                TeamsScreen(vm)
                             }
-
-                            // ----- Home: nhập Steam32/64 → mở matches/{id} -----
                             composable("home") {
                                 HomeScreen(
                                     onOpenPlayer = { rawId ->
                                         val id32 = toSteam32(rawId)
-                                        if (id32 != null && id32 > 0) {
-                                            nav.safeNavigate("matches/$id32", dest)
-                                        }
+                                        if (id32 != null && id32 > 0) nav.safeNavigate("matches/$id32", dest)
                                     }
                                 )
                             }
-
-                            // ----- Matches theo player -----
                             composable("matches/{accountId32}") { backStackEntry ->
-                                val idStr = backStackEntry.arguments?.getString("accountId32")
-                                val accountId32 = idStr?.toLongOrNull()
-                                if (accountId32 != null) {
-                                    val api = RetrofitClient.api
-                                    val repo = MatchesRepository(api)
-                                    val factory = MatchesVMFactory(repo, accountId32, null)
-                                    val vm = viewModel<MatchesViewModel>(factory = factory)
+                                val id32 = backStackEntry.arguments?.getString("accountId32")?.toLongOrNull()
+                                if (id32 != null) {
+                                    val vm = viewModel<MatchesViewModel>(
+                                        factory = MatchesVMFactory(
+                                            repo = MatchesRepository(RetrofitClient.api),
+                                            heroesRepo = HeroesRepository(RetrofitClient.api),
+                                            accountId32 = id32,
+                                            apiKey = null
+                                        )
+                                    )
+
                                     MatchesScreen(vm)
                                 } else {
                                     LaunchedEffect(Unit) { nav.safeNavigate("home", dest) }
                                 }
                             }
 
-                            // ----- Heroes grid -----
                             composable("heroes") {
-                                val api = RetrofitClient.api
-                                val repo = HeroesRepository(api)
-                                val factory = HeroesVMFactory(repo, null)
-                                val vm = viewModel<HeroesViewModel>(factory = factory)
+                                val vm = viewModel<HeroesViewModel>(
+                                    factory = HeroesVMFactory(HeroesRepository(RetrofitClient.api), apiKey = null)
+                                )
                                 HeroesScreen(vm)
                             }
                         }
@@ -244,12 +209,10 @@ class MainActivity : ComponentActivity() {
 
 /* ===== Helpers ===== */
 private fun toSteam32(input: String): Long? {
-    val trimmed = input.trim()
-    if (trimmed.isEmpty()) return null
-    val n = trimmed.toLongOrNull() ?: return null
-    return if (trimmed.length > 10 || trimmed.startsWith("7656")) {
-        n - 76561197960265728L
-    } else n
+    val t = input.trim()
+    if (t.isEmpty()) return null
+    val n = t.toLongOrNull() ?: return null
+    return if (t.length > 10 || t.startsWith("7656")) n - 76561197960265728L else n
 }
 
 private fun androidx.navigation.NavHostController.safeNavigate(
@@ -268,8 +231,8 @@ private fun androidx.navigation.NavHostController.safeNavigate(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onOpenPlayer: (String) -> Unit) {
-    var query by remember { mutableStateOf(TextFieldValue("")) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var query by rememberSaveable { mutableStateOf("") }   // saveable để không reset
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
 
     Scaffold(containerColor = Ink) { inner ->
         Column(
@@ -311,35 +274,52 @@ fun HomeScreen(onOpenPlayer: (String) -> Unit) {
                         color = TextDim
                     )
                     Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),   // quan trọng để weight hoạt động
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // ===== Search field (fixed) =====
                         OutlinedTextField(
                             value = query,
-                            onValueChange = { query = it; error = null },
+                            onValueChange = {
+                                query = it
+                                error = null
+                            },
                             singleLine = true,
-                            leadingIcon = { Icon(Icons.Filled.Search, null) },
-                            placeholder = { Text("Enter Steam32 or Steam64 ID…", color = TextDim) },
-                            textStyle = LocalTextStyle.current.copy(color = TextLight),
+                            maxLines = 1,
+                            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                            placeholder = { Text("Enter Player ID…") },
+                            textStyle = TextStyle(color = Color.White), // có/không đều ok
+                            visualTransformation = VisualTransformation.None,
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(52.dp)
-                                .clip(RoundedCornerShape(6.dp)),
+                                .heightIn(min = 56.dp),                 // ⬅️ KHÔNG dùng .height(52.dp)
                             isError = error != null,
-                            supportingText = { error?.let { Text(it) } },
+                            supportingText = { error?.let { Text(it, color = Color.Red) } },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = Color(0xFF142732),
                                 unfocusedContainerColor = Color(0xFF142732),
                                 focusedBorderColor = AccentBlue,
                                 unfocusedBorderColor = Color.Transparent,
-                                cursorColor = AccentBlue
+                                cursorColor = AccentBlue,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedPlaceholderColor = Color.White.copy(alpha = 0.6f),
+                                unfocusedPlaceholderColor = Color.White.copy(alpha = 0.6f),
+                                focusedLeadingIconColor = Color.White,
+                                unfocusedLeadingIconColor = Color.White
                             )
                         )
+
+
                         Spacer(Modifier.width(10.dp))
                         Button(
                             onClick = {
-                                val input = query.text.trim()
-                                if (input.isEmpty()) {
-                                    error = "Please enter a Steam ID"
-                                } else onOpenPlayer(input)
+                                val input = query.trim()
+                                if (input.isEmpty()) error = "Please enter a Steam ID"
+                                else onOpenPlayer(input)
                             },
                             modifier = Modifier.height(52.dp)
                         ) { Text("View Player") }
@@ -377,7 +357,7 @@ fun HomeScreen(onOpenPlayer: (String) -> Unit) {
     }
 }
 
-/* ========== UI Components ========== */
+/* ===== UI Bits ===== */
 @Composable
 private fun TopNavItem(label: String, onClick: () -> Unit) {
     TextButton(onClick = onClick) {
@@ -411,9 +391,7 @@ private fun InfoCard(icon: @Composable () -> Unit, title: String, body: String) 
                     .background(Color(0x1A3BA1E6)),
                 contentAlignment = Alignment.Center
             ) {
-                CompositionLocalProvider(LocalContentColor provides AccentBlue) {
-                    icon()
-                }
+                CompositionLocalProvider(LocalContentColor provides AccentBlue) { icon() }
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -441,9 +419,7 @@ private fun SponsorBlock() {
             modifier = Modifier.size(96.dp)
         )
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { /* no-op */ }) {
-            Text("Become a Sponsor")
-        }
+        OutlinedButton(onClick = { }) { Text("Become a Sponsor") }
     }
 }
 

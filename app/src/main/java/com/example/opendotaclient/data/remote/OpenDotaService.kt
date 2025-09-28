@@ -34,9 +34,9 @@ interface OpenDotaService {
     // Recent public matches feed (like /matches)
     @GET("publicMatches")
     suspend fun getPublicMatches(
-        @Query("mmr_descending") mmrDesc: Int? = null,      // optional
+        @Query("mmr_descending") mmrDesc: Int? = null,
         @Query("less_than_match_id") lessThanMatchId: Long? = null,
-        @Query("api_key") apiKey: String? = null           // cho đồng bộ
+        @Query("api_key") apiKey: String? = null
     ): List<PublicMatchDTO>
 
     // Player profile summary
@@ -51,7 +51,7 @@ interface OpenDotaService {
     suspend fun getPlayerHeroes(
         @Path("account_id") id: Long,
         @Query("api_key") apiKey: String? = null
-    ): List<PlayerHeroDTO>
+    ): List<PlayerHeroStatDTO>
 
     // Player hero rankings (per hero)
     @GET("players/{account_id}/rankings")
@@ -60,11 +60,10 @@ interface OpenDotaService {
         @Query("api_key") apiKey: String? = null
     ): List<PlayerRankingDTO>
 
-    // com/example/opendotaclient/data/remote/OpenDotaService.kt
+    // Match detail
     @GET("matches/{match_id}")
     suspend fun getMatch(
         @Path("match_id") matchId: Long,
         @Query("api_key") apiKey: String? = null
     ): MatchDetailDTO
-
 }
